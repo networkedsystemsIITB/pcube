@@ -42,7 +42,7 @@ python topo_to_json.py
 # ----------------------------------------------------
 
 ###--- Generate p4 for all switches from ip4
-python3 p4src/generate_p4.py p4src/distributed_stateful_load_balancer_merged.ip4
+python3 p4src/parser.py p4src/distributed_stateful_load_balancer_merged.ip4
 
 # This gets the topology data from topo.json and then using the ip4, generates the P4 for each switch based on the topology.
 # # For generation of P4, the following things are done in order:

@@ -8,92 +8,11 @@ import sys
 import os
 import re
 import json
+import fileinput
 from collections import OrderedDict
 from pyparsing import Word, alphas, nums, nestedExpr, Keyword, alphanums, Regex, White, Optional
 
-import fileinput
-
-# Kept a global for clarity on what all features are present
-# and also prevent hardcoding of tokens in the code
-
-KEYWORDS = {
-    'for'		:	'@pcube_for',
-    'endfor'	:	'@pcube_endfor',
-    'compare'	:	'@pcube_minmax',
-    'endcompare':	'@pcube_endminmax',
-    'case'		:	'@pcube_case',
-    'endcase'	:	'@pcube_endcase',
-    'sum'		:	'@pcube_sum',
-    'bool'      :   '@pcube_cmp',
-    'sync'      :   '@pcube_sync',
-    'endsync'   :   '@pcube_endsync',
-    'mirror'    :   '@pcube_echo',
-    'endmirror' :   '@pcube_endecho',
-}
-
-TOPO_DATA = None
-
-TABLE_STRING = \
-"table %s_info%d_table {\n\
-    actions{\n\
-        %s_info%d;\n\
-    }\n\
-    size: 1;\n\
-}\n\n"
-
-SYNC_ACTION_START_STRING = \
-"action %s_info%d() {\n\
-    clone_ingress_pkt_to_egress(standard_metadata.egress_spec,meta_list);\n\
-    modify_field(%s,%s);\n\
-"
-MIRROR_ACTION_START_STRING = \
-"action %s_info%d() {\n\
-    modify_field(%s,%s);\n\
-"
-
-MODIFY_FIELD = \
-"    modify_field(sync_info._%d,%s);\n"
-
-SYNC_ACTION_END_STRING = \
-"    modify_field(intrinsic_metadata.mcast_grp, %d);\n\
-}\n\n"
-
-MIRROR_ACTION_END_STRING = \
-"    modify_field(standard_metadata.egress_spec, standard_metadata.ingress_port);\n\
-}\n\n"
-
-HEADER_START_STRING = \
-"header_type sync_info_t {\n\
-    fields{\n\
-"
-
-HEADER_FNAME_STRING = \
-"       _%d : 32;\n"
-
-HEADER_END_STRING = \
-"   }\n\
-}\n\n"
-
-HEADER = "header sync_info_t sync_info;\n"
-
-APPLY_SYNC_STRING = "%sapply(sync_info%d_table);\n"
-APPLY_MIRROR_STRING = "%sapply(mirror_info%d_table);\n"
-
-INTRINSIC_METADATA = \
-"header_type intrinsic_metadata_t {\n\
-    fields {\n\
-        mcast_grp : 16;\n\
-        egress_rid : 16;\n\
-    }\n\
-}\n\
-metadata intrinsic_metadata_t intrinsic_metadata;\n\n\
-"
-
-META_LIST = \
-"field_list meta_list {\n\
-    standard_metadata;\n\
-    intrinsic_metadata;\n\
-}\n\n"
+from config import *
 
 class p4_code_generator():
 
@@ -106,7 +25,7 @@ class p4_code_generator():
         self.destsum = dest + ".sum"
         self.destbool = dest + ".bool"
         self.destsync = filename + "_s%d_sync.p4"%self.switch_id
-        self.sync_header = filename + "_sync_header.p4"
+        self.sync_header = SYNC_HEADER_FILE % filename
         self.dest = dest
         self.tempfiles = [
             self.destfor,
@@ -121,7 +40,7 @@ class p4_code_generator():
         }
 
         self.sync_id = 0
-        self.mirror_id = 0
+        self.echo_id = 0
 
     def expand(self):
         os.system('rm -f %s' % self.destsync)
@@ -179,20 +98,8 @@ class p4_code_generator():
                     val = self.constants[var_name]
                 elif var_name in TOPO_DATA["topo_stats"][self.string_id]:
                     val = TOPO_DATA["topo_stats"][self.string_id][var_name]
-                else:
-                    if var_name == "SERVERPLUSONE":
-                        val = self.constants["SERVERS"] + 1
-                    elif var_name == "SERVERMINUSONE":
-                        val = self.constants["SERVERS"] - 1
-                    elif var_name == "SWITCHPLUSONE":
-                        val = self.constants["SWITCHES"] + 1
-                    elif var_name == "SWITCHMINUSONE":
-                        val = self.constants["SWITCHES"] - 1
-                    elif var_name == "SWITCHPLUSSERVER":
-                        val = self.constants["SERVERS"] + self.constants["SWITCHES"]
-
+                
                 self.constants[var_name] = int(val)
-                # dfile.write(define_string%(var_name,int(val)))
 
             # If we are entering a for loop or already in one
             elif active_for or KEYWORDS['for'] in row:
@@ -202,7 +109,6 @@ class p4_code_generator():
                     tokens = row.split()
                     # Get the lexeme used as iteration variable
                     iter_var = re.search(r'\((.*)\)',tokens[1]).group(1)
-                    #
                     res = re.search(r'\((.*),(.*),(.*)\)',tokens[2].rstrip('\n'))
                     try:
                         start, end, step = int(res.group(1)), int(res.group(2)), int(res.group(3))
@@ -210,7 +116,6 @@ class p4_code_generator():
                         start, end, step = int(res.group(1)), self.constants[res.group(2)], int(res.group(3))
 
                 elif KEYWORDS['endfor'] in row:
-                    # print(content)
                     self.roll_out_forloop(content,iter_var,dfile,start,end,step)
                     active_for = False
                     content = ""
@@ -221,7 +126,6 @@ class p4_code_generator():
 
         sfile.close()
         dfile.close()
-        self.replace_constants()
 
     def replace_constants(self):
         for key, value in self.constants.items():
@@ -266,17 +170,14 @@ class p4_code_generator():
 
         for line in sfile:
             if KEYWORDS['compare'] in line:
-                # import pdb; pdb.set_trace()
                 res = compare_format.parseString(line)
                 op = res.op
                 varlist = OrderedDict()
                 while True:
                     l = sfile.readline()
-                    # import pdb; pdb.set_trace()
                     if KEYWORDS['endcompare'] in l:
                         break
                     elif KEYWORDS['case'] in l:
-                        # import pdb; pdb.set_trace()
                         res = case_format.parseString(l)
                         var = res.var
                         varlist[var] = ''
@@ -303,7 +204,6 @@ class p4_code_generator():
 
         for line in sfile:
             if KEYWORDS['sum'] in line:
-                # import pdb; pdb.set_trace()
                 res = line_sum_format.parseString(line)
                 start = int(res.start)
                 end = int(res.end)
@@ -315,8 +215,9 @@ class p4_code_generator():
                     replacement += var.replace("$i", str(i)) + " + "
                 replacement = replacement[:-3] + res.after
 
-                #FIX MEE !!!
+                #FIX ME!
                 if len(res.after.split()) == 0: replacement += "\n"
+                
                 dfile.write(replacement)
             else:
                 dfile.write(line)
@@ -334,7 +235,6 @@ class p4_code_generator():
 
         for line in sfile:
             if KEYWORDS['bool'] in line:
-                # import pdb; pdb.set_trace()
                 res = line_bool_format.parseString(line)
                 start = int(res.start)
                 end = int(res.end)
@@ -369,18 +269,18 @@ class p4_code_generator():
         sfile.write(SYNC_ACTION_END_STRING%self.constants["MCAST_GRP"])
         sfile.close()
 
-    def write_mirror_action(self, fields, mirror_id, field_name, val):
+    def write_echo_action(self, fields, echo_id, field_name, val):
         sfile = open(self.destsync, 'a')
 
         globals()["sync_fields_count"] = max(len(fields), globals()["sync_fields_count"])
 
-        sfile.write(TABLE_STRING%("mirror",mirror_id,"mirror",mirror_id))
-        sfile.write(MIRROR_ACTION_START_STRING%("mirror",mirror_id,field_name,val))
+        sfile.write(TABLE_STRING%("echo",echo_id,"echo",echo_id))
+        sfile.write(ECHO_ACTION_START_STRING%("echo",echo_id,field_name,val))
 
         for i in range(len(fields)):
             sfile.write(MODIFY_FIELD%(i,fields[i]))
 
-        sfile.write(MIRROR_ACTION_END_STRING)
+        sfile.write(ECHO_ACTION_END_STRING)
         sfile.close()
 
     def expand_sync(self):
@@ -388,9 +288,9 @@ class p4_code_generator():
         dfile = open(self.dest, 'w')
 
         sync_format = Keyword(KEYWORDS['sync']) + '(' + Regex(r'[_a-zA-Z]*')("header_name") + "." + Regex(r'[^\s\(\),]*')("field") + "," + Word(nums)("val") + ')'
-        mirror_format = Keyword(KEYWORDS['mirror']) + '(' + Regex(r'[_a-zA-Z]*')("header_name") + "." + Regex(r'[^\s\(\),]*')("field") + "," + Word(nums)("val") + ')'
+        echo_format = Keyword(KEYWORDS['echo']) + '(' + Regex(r'[_a-zA-Z]*')("header_name") + "." + Regex(r'[^\s\(\),]*')("field") + "," + Word(nums)("val") + ')'
 
-        active_sync, active_mirror = False, False
+        active_sync, active_echo = False, False
         fields, field_name, val = [], None, None
 
         for line in sfile:
@@ -400,11 +300,11 @@ class p4_code_generator():
                 active_sync = True
                 self.sync_id += 1
 
-            elif KEYWORDS['mirror'] in line:
-                res = mirror_format.parseString(line)
+            elif KEYWORDS['echo'] in line:
+                res = echo_format.parseString(line)
                 field_name, val = res.header_name + '.' + res.field, res.val
-                active_mirror = True
-                self.mirror_id += 1
+                active_echo = True
+                self.echo_id += 1
 
             elif KEYWORDS['endsync'] in line:
                 active_sync = False
@@ -413,14 +313,14 @@ class p4_code_generator():
                 indent = line[:-len(line.lstrip())]
                 dfile.write(APPLY_SYNC_STRING%(indent,self.sync_id))
 
-            elif KEYWORDS['endmirror'] in line:
-                active_mirror = False
-                self.write_mirror_action(fields,self.mirror_id, field_name, val)
+            elif KEYWORDS['endecho'] in line:
+                active_echo = False
+                self.write_echo_action(fields,self.echo_id, field_name, val)
                 fields = []
                 indent = line[:-len(line.lstrip())]
-                dfile.write(APPLY_MIRROR_STRING%(indent,self.mirror_id))
+                dfile.write(APPLY_ECHO_STRING%(indent,self.echo_id))
 
-            elif active_sync or active_mirror:
+            elif active_sync or active_echo:
                 fields.append(line.strip())
 
             else:
@@ -448,8 +348,6 @@ class p4_code_generator():
         dfile = open('commands_template_merged_%s.txt'%self.string_id, 'w')
 
         self.generate_commands_template_helper(sfile,dfile)
-        #Hardcoded limits temporarily
-        dfile.write('table_add get_limits_table get_limits => 20 80\n')
         
         sfile.close()
         dfile.close()
@@ -464,7 +362,7 @@ class p4_code_generator():
 
 
 def generate_sync_header(filename):
-    sfile = open(filename+"_sync_header.p4",'w')
+    sfile = open( SYNC_HEADER_FILE % filename,'w')
 
     sfile.write(HEADER_START_STRING)
     for i in range(globals()["sync_fields_count"]):
@@ -491,7 +389,7 @@ if __name__ == '__main__':
 
     src = sys.argv[1]
 
-    filename = src[:-4]
+    filename = src.split('.')[0]
 
     globals()["sync_fields_count"] = 0
 
