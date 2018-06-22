@@ -321,8 +321,64 @@
     "meter_arrays": [],
     "actions": [
         {
-            "name": "mirror_info1",
+            "name": "set_switch7_dest_port",
             "id": 0,
+            "runtime_data": [],
+            "primitives": [
+                {
+                    "op": "register_write",
+                    "parameters": [
+                        {
+                            "type": "register_array",
+                            "value": "total_flow_count_register"
+                        },
+                        {
+                            "type": "hexstr",
+                            "value": "0x8"
+                        },
+                        {
+                            "type": "expression",
+                            "value": {
+                                "type": "expression",
+                                "value": {
+                                    "op": "+",
+                                    "left": {
+                                        "type": "field",
+                                        "value": [
+                                            "meta",
+                                            "switch_flow7"
+                                        ]
+                                    },
+                                    "right": {
+                                        "type": "hexstr",
+                                        "value": "0x1"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "op": "modify_field",
+                    "parameters": [
+                        {
+                            "type": "field",
+                            "value": [
+                                "standard_metadata",
+                                "egress_spec"
+                            ]
+                        },
+                        {
+                            "type": "hexstr",
+                            "value": "0xa"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "mirror_info1",
+            "id": 1,
             "runtime_data": [],
             "primitives": [
                 {
@@ -392,62 +448,6 @@
                                 "standard_metadata",
                                 "ingress_port"
                             ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "set_switch7_dest_port",
-            "id": 1,
-            "runtime_data": [],
-            "primitives": [
-                {
-                    "op": "register_write",
-                    "parameters": [
-                        {
-                            "type": "register_array",
-                            "value": "total_flow_count_register"
-                        },
-                        {
-                            "type": "hexstr",
-                            "value": "0x8"
-                        },
-                        {
-                            "type": "expression",
-                            "value": {
-                                "type": "expression",
-                                "value": {
-                                    "op": "+",
-                                    "left": {
-                                        "type": "field",
-                                        "value": [
-                                            "meta",
-                                            "switch_flow7"
-                                        ]
-                                    },
-                                    "right": {
-                                        "type": "hexstr",
-                                        "value": "0x1"
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                },
-                {
-                    "op": "modify_field",
-                    "parameters": [
-                        {
-                            "type": "field",
-                            "value": [
-                                "standard_metadata",
-                                "egress_spec"
-                            ]
-                        },
-                        {
-                            "type": "hexstr",
-                            "value": "0xa"
                         }
                     ]
                 }

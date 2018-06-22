@@ -510,45 +510,12 @@
             ]
         },
         {
-            "name": "set_switch9_dest_port",
+            "name": "sync_info1",
             "id": 3,
             "runtime_data": [],
             "primitives": [
                 {
-                    "op": "register_write",
-                    "parameters": [
-                        {
-                            "type": "register_array",
-                            "value": "total_flow_count_register"
-                        },
-                        {
-                            "type": "hexstr",
-                            "value": "0xa"
-                        },
-                        {
-                            "type": "expression",
-                            "value": {
-                                "type": "expression",
-                                "value": {
-                                    "op": "+",
-                                    "left": {
-                                        "type": "field",
-                                        "value": [
-                                            "meta",
-                                            "switch_flow9"
-                                        ]
-                                    },
-                                    "right": {
-                                        "type": "hexstr",
-                                        "value": "0x1"
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                },
-                {
-                    "op": "modify_field",
+                    "op": "clone_ingress_pkt_to_egress",
                     "parameters": [
                         {
                             "type": "field",
@@ -559,7 +526,39 @@
                         },
                         {
                             "type": "hexstr",
-                            "value": "0xc"
+                            "value": "0x1"
+                        }
+                    ]
+                },
+                {
+                    "op": "modify_field",
+                    "parameters": [
+                        {
+                            "type": "field",
+                            "value": [
+                                "load_balancer_head",
+                                "preamble"
+                            ]
+                        },
+                        {
+                            "type": "hexstr",
+                            "value": "0x1"
+                        }
+                    ]
+                },
+                {
+                    "op": "modify_field",
+                    "parameters": [
+                        {
+                            "type": "field",
+                            "value": [
+                                "intrinsic_metadata",
+                                "mcast_grp"
+                            ]
+                        },
+                        {
+                            "type": "hexstr",
+                            "value": "0x7"
                         }
                     ]
                 }
@@ -1531,12 +1530,45 @@
             ]
         },
         {
-            "name": "sync_info1",
+            "name": "set_switch9_dest_port",
             "id": 19,
             "runtime_data": [],
             "primitives": [
                 {
-                    "op": "clone_ingress_pkt_to_egress",
+                    "op": "register_write",
+                    "parameters": [
+                        {
+                            "type": "register_array",
+                            "value": "total_flow_count_register"
+                        },
+                        {
+                            "type": "hexstr",
+                            "value": "0xa"
+                        },
+                        {
+                            "type": "expression",
+                            "value": {
+                                "type": "expression",
+                                "value": {
+                                    "op": "+",
+                                    "left": {
+                                        "type": "field",
+                                        "value": [
+                                            "meta",
+                                            "switch_flow9"
+                                        ]
+                                    },
+                                    "right": {
+                                        "type": "hexstr",
+                                        "value": "0x1"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "op": "modify_field",
                     "parameters": [
                         {
                             "type": "field",
@@ -1547,39 +1579,7 @@
                         },
                         {
                             "type": "hexstr",
-                            "value": "0x1"
-                        }
-                    ]
-                },
-                {
-                    "op": "modify_field",
-                    "parameters": [
-                        {
-                            "type": "field",
-                            "value": [
-                                "load_balancer_head",
-                                "preamble"
-                            ]
-                        },
-                        {
-                            "type": "hexstr",
-                            "value": "0x1"
-                        }
-                    ]
-                },
-                {
-                    "op": "modify_field",
-                    "parameters": [
-                        {
-                            "type": "field",
-                            "value": [
-                                "intrinsic_metadata",
-                                "mcast_grp"
-                            ]
-                        },
-                        {
-                            "type": "hexstr",
-                            "value": "0x7"
+                            "value": "0xc"
                         }
                     ]
                 }
