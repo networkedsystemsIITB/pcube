@@ -1,0 +1,40 @@
+table_set_default get_limits_table get_limits
+table_set_default get_server_flow_count_table get_server_flow_count
+table_set_default update_switch_flow_count_table update_switch_flow_count
+table_set_default set_server_dest_port_table set_server_dest_port
+table_set_default set_probe_bool_table set_probe_bool
+table_set_default get_switch_flow_count_table get_switch_flow_count
+table_set_default set_switch1_dest_port_table set_switch1_dest_port
+table_set_default set_switch2_dest_port_table set_switch2_dest_port
+table_set_default set_switch3_dest_port_table set_switch3_dest_port
+table_set_default set_switch4_dest_port_table set_switch4_dest_port
+table_set_default update_map_table update_map
+table_set_default forwarding_table forward
+table_set_default drop_table _drop
+table_set_default clear_map_table clear_map
+table_set_default update_flow_count_table update_flow_count
+table_add set_server_dest_port_table set_server_dest_port 0 0 => 0 2
+table_add set_server_dest_port_table set_server_dest_port 0 1 => 0 2
+table_add set_server_dest_port_table set_server_dest_port 0 2 => 0 2
+table_add set_server_dest_port_table set_server_dest_port 0 3 => 0 2
+table_add set_server_dest_port_table set_server_dest_port 0 4 => 0 2
+table_add set_server_dest_port_table set_server_dest_port 1 0 => 0 3
+table_add set_server_dest_port_table set_server_dest_port 1 1 => 1 2
+table_add set_server_dest_port_table set_server_dest_port 1 2 => 1 2
+table_add set_server_dest_port_table set_server_dest_port 1 3 => 1 2
+table_add set_server_dest_port_table set_server_dest_port 1 4 => 1 2
+table_add set_server_dest_port_table set_server_dest_port 2 0 => 0 3
+table_add set_server_dest_port_table set_server_dest_port 2 1 => 1 3
+table_add set_server_dest_port_table set_server_dest_port 2 2 => 2 2
+table_add set_server_dest_port_table set_server_dest_port 2 3 => 2 2
+table_add set_server_dest_port_table set_server_dest_port 2 4 => 2 2
+table_add set_server_dest_port_table set_server_dest_port 3 0 => 0 3
+table_add set_server_dest_port_table set_server_dest_port 3 1 => 1 3
+table_add set_server_dest_port_table set_server_dest_port 3 2 => 2 3
+table_add set_server_dest_port_table set_server_dest_port 3 3 => 3 2
+table_add set_server_dest_port_table set_server_dest_port 3 4 => 3 2
+table_add set_server_dest_port_table set_server_dest_port 4 0 => 0 3
+table_add set_server_dest_port_table set_server_dest_port 4 1 => 1 3
+table_add set_server_dest_port_table set_server_dest_port 4 2 => 2 3
+table_add set_server_dest_port_table set_server_dest_port 4 3 => 3 3
+table_add set_server_dest_port_table set_server_dest_port 4 4 => 4 2

@@ -1,0 +1,19 @@
+table_set_default echo_info1_table echo_info1
+table_set_default sync_info1_table sync_info1
+table_set_default sync_info2_table sync_info2
+mc_mgrp_create 4
+mc_node_create 0 4
+mc_node_associate 4 0
+mc_node_create 1 5
+mc_node_associate 4 1
+mc_node_create 2 6
+mc_node_associate 4 2
+mc_node_create 3 7
+mc_node_associate 4 3
+mirroring_add 1 1
+mirroring_add 2 2
+mirroring_add 3 3
+mirroring_add 4 4
+mirroring_add 5 5
+mirroring_add 6 6
+mirroring_add 7 7
