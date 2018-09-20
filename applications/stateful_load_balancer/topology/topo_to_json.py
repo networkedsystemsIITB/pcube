@@ -1,18 +1,10 @@
 import json
 from collections import OrderedDict
 
-def get_topo_data():
-    with open('topo.json','r') as f:
-        data = json.load(f)
+def get_topo_data(topo_file):
+    with open(topo_file,'r') as f:
+        data = json.load(f, object_pairs_hook=OrderedDict)
     return data
-
-def get_links(json_links):
-    links = []
-    for key in json_links:
-        link = json_links[key]
-        a, b = link["_0"], link["_1"]  
-        links.append( (a, b) )
-    return links
 
 def read_topo():
     nb_hosts = 0
@@ -72,6 +64,6 @@ def read_topo():
     return json_data
 
 data = read_topo()
-with open('topo.json', 'w') as out:
+with open('int_topo.json', 'w') as out:
     json.dump(data, out, indent=4)
 

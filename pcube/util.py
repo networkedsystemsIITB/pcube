@@ -37,6 +37,9 @@ TABLE_STRING = \
 MODIFY_FIELD = \
 "    modify_field(sync_info._%d,%s);\n"
 
+ADD_HEADER = \
+"   add_header(sync_info);\n"
+
 SYNC_ACTION_START_STRING = \
 "action %s_info%d() {\n\
     clone_ingress_pkt_to_egress(standard_metadata.egress_spec,meta_list);\n\

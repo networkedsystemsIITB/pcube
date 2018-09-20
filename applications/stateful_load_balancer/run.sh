@@ -3,7 +3,7 @@
 ###--- Remove stale json
 for j in `seq 1 $2`
 do
-	rm p4src/distributed_stateful_load_balancer_$1_s$j.json
+	rm src/p4src/distributed_stateful_load_balancer_s$j.json
 done
 
 ###--- Setup Environment
@@ -11,7 +11,7 @@ sudo rm -f *.pcap
 sudo mn -c
 THIS_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-source $THIS_DIR/../../env.sh
+source env.sh
 
 P4C_BM_SCRIPT=$P4C_BM_PATH/p4c_bm/__main__.py
 
@@ -19,10 +19,12 @@ SWITCH_PATH=$BMV2_PATH/targets/simple_switch/simple_switch
 
 # CLI_PATH=$BMV2_PATH/tools/runtime_CLI.py
 CLI_PATH=$BMV2_PATH/tools/modified_runtime_CLI.py
-# CLI_PATH=$BMV2_PATH/targets/simple_switch/sswitch_CLI.py
 
 ###--- Read topo, create json dump of topology
-python topo_to_json.py
+cd topology
+python3 topo_to_json.py
+python3 custom_topo_stats.py
+cd ..
 
 # This reads the topo.txt file and creates a dictionary with the following things:
 # 1. Number of switches
@@ -41,8 +43,16 @@ python topo_to_json.py
 
 # ----------------------------------------------------
 
+cd ../../pcube
+
 ###--- Generate p4 for all switches from ip4
-python3 p4src/parser.py p4src/distributed_stateful_load_balancer_merged.ip4
+python3 parser.py ../applications/stateful_load_balancer/src/distributed_stateful_load_balancer.ip4 ../applications/stateful_load_balancer/topology/topo.json
+
+###--- Generate sync_commands.txt
+# This generates commands for syncing and forwarding cloned packets (probe packets) - mcast groups are created based on the topology (takes in topo.json)
+python generate_sync_commands.py ../applications/stateful_load_balancer/topology/topo.json ../applications/stateful_load_balancer/src/commands
+
+cd ../applications/stateful_load_balancer
 
 # This gets the topology data from topo.json and then using the ip4, generates the P4 for each switch based on the topology.
 # # For generation of P4, the following things are done in order:
@@ -58,22 +68,18 @@ python3 p4src/parser.py p4src/distributed_stateful_load_balancer_merged.ip4
 
 ###--- Generate commands for sending packets to lowest load server
 # 5 is Threshold here
-python generate_commands.py $1 5
+python generate_commands.py 5 topology/topo.json
 # Appends results to the template commands.txt to get the final commands.txt
 
-###--- Generate sync_commands.txt
-python generate_sync_commands.py
-# This generates commands for syncing and forwarding cloned packets (probe packets) - mcast groups are created based on the topology (takes in topo.json)
-
-###--- Compile p4 for all switches
-for j in `seq 1 $2`
+# ###--- Compile p4 for all switches
+for j in `seq 1 $(echo $(head -n 1 topology/topo.txt) | cut -d ' ' -f 2)`
 do
-    $P4C_BM_SCRIPT p4src/distributed_stateful_load_balancer_$1_s$j.p4 --json p4src/distributed_stateful_load_balancer_$1_s$j.json
+    $P4C_BM_SCRIPT src/p4src/distributed_stateful_load_balancer_s$j.p4 --json src/p4src/distributed_stateful_load_balancer_s$j.json
     sudo $SWITCH_PATH >/dev/null 2>&1
 done
 
-###--- Burn json for each switch individually using topo.py
-sudo PYTHONPATH=$PYTHONPATH:$BMV2_PATH/mininet/ python topo.py \
+###--- Burn json for each switch individually using start_mininet.py
+sudo PYTHONPATH=$PYTHONPATH:$BMV2_PATH/mininet/ python start_mininet.py \
     --behavioral-exe $SWITCH_PATH \
-    --json p4src/distributed_stateful_load_balancer_$1 \
+    --json src/p4src/distributed_stateful_load_balancer \
     --cli $CLI_PATH

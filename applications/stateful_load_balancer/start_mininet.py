@@ -8,12 +8,12 @@ from mininet.link import TCLink
 
 from p4_mininet import P4Switch, P4Host
 
-from time import sleep
-import subprocess
-import argparse
 import os
-
-from topo_to_json import get_topo_data, get_links
+import json
+import argparse
+import subprocess
+from time import sleep
+from collections import OrderedDict
 
 _THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 _THRIFT_BASE_PORT = 22222
@@ -47,9 +47,19 @@ class MyTopo(Topo):
 		for a, b in links:
 			self.addLink(a, b)
 
+def get_links(json_links):
+    links = []
+    for key in json_links:
+        link = json_links[key]
+        a, b = link["_0"], link["_1"]  
+        links.append( (a, b) )
+    return links
+
 def main():
 
-	topo_data = get_topo_data()
+	topo_data = None
+	with open('topology/topo.json','r') as f:
+		topo_data = json.load(f, object_pairs_hook=OrderedDict)
 
 	nb_hosts = topo_data["nb_hosts"]
 	nb_switches = topo_data["nb_switches"]
@@ -85,7 +95,7 @@ def main():
 		cmd = [args.cli, "--json", args.json + "_s" + str(i + 1) + ".json" ,
 			   "--thrift-port", str(_THRIFT_BASE_PORT + i)]
 
-		with open("commands_s%d.txt"%( i+1 ), "r") as f:
+		with open("src/commands/commands_s%d.txt"%( i+1 ), "r") as f:
 			print " ".join(cmd)
 			try:
 				output = subprocess.check_output(cmd, stdin = f)
@@ -94,7 +104,7 @@ def main():
 				print e
 				print e.output
 
-		with open("sync_commands_s%d.txt"%( i+1 ), "r") as f:
+		with open("src/commands/sync_commands_s%d.txt"%( i+1 ), "r") as f:
 			print " ".join(cmd)
 			try:
 				output = subprocess.check_output(cmd, stdin = f)

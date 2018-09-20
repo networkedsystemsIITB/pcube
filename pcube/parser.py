@@ -12,11 +12,11 @@ import fileinput
 from collections import OrderedDict
 from pyparsing import Word, alphas, nums, nestedExpr, Keyword, alphanums, Regex, White, Optional
 
-from config import *
+from util import *
 
 class p4_code_generator():
 
-    def __init__(self, switch_id, src, dest, filename):
+    def __init__(self, switch_id, src, dest, filename, folder, commands_folder):
         self.switch_id = switch_id
         self.string_id = 's%d'%switch_id
         self.src = src
@@ -24,8 +24,10 @@ class p4_code_generator():
         self.destcmp = dest + ".cmp"
         self.destsum = dest + ".sum"
         self.destbool = dest + ".bool"
-        self.destsync = filename + "_s%d_sync.p4"%self.switch_id
-        self.sync_header = SYNC_HEADER_FILE % filename
+        self.destsync = folder + filename + "_s%d_sync.p4"%self.switch_id
+        self.sync_header_file = SYNC_HEADER_FILE % (folder + filename)
+        self.folder = folder
+        self.commands_folder = commands_folder
         self.dest = dest
         self.tempfiles = [
             self.destfor,
@@ -46,9 +48,9 @@ class p4_code_generator():
         os.system('rm -f %s' % self.destsync)
         self.expand_for()
         self.replace_constants()
-        self.expand_compare()
+        self.expand_minmax()
         self.expand_sum()
-        self.expand_bool()
+        self.expand_cmp()
         self.expand_sync()
         self.generate_commands_template()
         for f in self.tempfiles:
@@ -64,7 +66,6 @@ class p4_code_generator():
 
     # Recognises all for loops present in the code along with their parameters
     # Nesting of loops not supported since it's not a common feature required in P4 programming
-    # TODO: Can use pyparsing code just like in all other functions
     def expand_for(self):
         # Recognises if we are in a for loop
         active_for = False
@@ -87,8 +88,8 @@ class p4_code_generator():
         for row in sfile:
             # Collect CONSTANTS
             if not header_included:
-                dfile.write("#include \"%s\"\n"%self.sync_header.split('/')[1])
-                dfile.write("#include \"%s\"\n"%self.destsync.split('/')[1])
+                dfile.write("#include \"%s\"\n"%self.sync_header_file.split('/')[-1])
+                dfile.write("#include \"%s\"\n"%self.destsync.split('/')[-1])
                 header_included = True
 
             if '#define' in row:
@@ -160,7 +161,7 @@ class p4_code_generator():
 
         dfile.write(final)
 
-    def expand_compare(self):
+    def expand_minmax(self):
         sfile = open(self.destfor, 'r')
         dfile = open(self.destcmp, 'w')
 
@@ -225,7 +226,7 @@ class p4_code_generator():
         sfile.close()
         dfile.close()
 
-    def expand_bool(self):
+    def expand_cmp(self):
         sfile = open(self.destsum, 'r')
         dfile = open(self.destbool, 'w')
 
@@ -266,6 +267,7 @@ class p4_code_generator():
         for i in range(len(fields)):
             sfile.write(MODIFY_FIELD%(i,fields[i]))
 
+        sfile.write(ADD_HEADER)
         sfile.write(SYNC_ACTION_END_STRING%self.constants["MCAST_GRP"])
         sfile.close()
 
@@ -280,6 +282,7 @@ class p4_code_generator():
         for i in range(len(fields)):
             sfile.write(MODIFY_FIELD%(i,fields[i]))
 
+        sfile.write(ADD_HEADER)
         sfile.write(ECHO_ACTION_END_STRING)
         sfile.close()
 
@@ -345,7 +348,7 @@ class p4_code_generator():
 
     def generate_commands_template(self):
         sfile = open(self.dest, 'r')
-        dfile = open('commands_template_merged_%s.txt'%self.string_id, 'w')
+        dfile = open('%scommands_template_%s.txt'%(self.commands_folder, self.string_id), 'w')
 
         self.generate_commands_template_helper(sfile,dfile)
         
@@ -353,7 +356,7 @@ class p4_code_generator():
         dfile.close()
         
         sfile = open(self.destsync, 'r')
-        dfile = open('sync_commands_%s.txt'%self.string_id, 'w')
+        dfile = open('%ssync_commands_%s.txt'%(self.commands_folder, self.string_id), 'w')
         
         self.generate_commands_template_helper(sfile,dfile)
         
@@ -361,8 +364,8 @@ class p4_code_generator():
         dfile.close()
 
 
-def generate_sync_header(filename):
-    sfile = open( SYNC_HEADER_FILE % filename,'w')
+def generate_sync_header(folder, filename):
+    sfile = open(SYNC_HEADER_FILE % (folder + filename) ,'w')
 
     sfile.write(HEADER_START_STRING)
     for i in range(globals()["sync_fields_count"]):
@@ -374,28 +377,32 @@ def generate_sync_header(filename):
     sfile.write(META_LIST)
     sfile.close()
 
-def get_topo_data():
-    with open('topo.json','r') as f:
+def get_topo_data(topo_file):
+    with open(topo_file,'r') as f:
         data = json.load(f)
     return data
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Format: python3 %s <filename>.ip4" % sys.argv[0])
+        print("Format: python3 %s <filename>.ip4 <topology>.json" % sys.argv[0])
         sys.exit()
 
-    TOPO_DATA = get_topo_data()
+    ### Read in topology information
+    topo_file = sys.argv[2]
+    TOPO_DATA = get_topo_data(topo_file)
     num_switches = TOPO_DATA["nb_switches"]
 
     src = sys.argv[1]
-
-    filename = src.split('.')[0]
+    ip4_file = src.split('/')[-1]
+    filename = ip4_file.split('.')[0]
+    p4src_folder = src[0:-len(ip4_file)] + 'p4src/'
+    commands_folder = src[0:-len(ip4_file)] + 'commands/'
 
     globals()["sync_fields_count"] = 0
 
     for i in range(1, num_switches + 1):
-        dest = "%s_s%d.p4" % (filename,i)
-        code_gen = p4_code_generator(i,src,dest,filename)
+        dest = "%s%s_s%d.p4" % (p4src_folder,filename,i)
+        code_gen = p4_code_generator(i,src,dest,filename,p4src_folder,commands_folder)
         code_gen.expand()
 
-    generate_sync_header(filename)
+    generate_sync_header(p4src_folder, filename)

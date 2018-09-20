@@ -3,13 +3,14 @@
 ########################################################
 
 import sys
-from topo_to_json import get_topo_data
+import json
+from collections import OrderedDict
 
 if len(sys.argv) < 3:
-    print("Format: %s <TYPE> <SERVER_THRESHOLD>" % sys.argv[0])
+    print("Format: %s <SERVER_THRESHOLD> <TOPOLOGY>" % sys.argv[0])
     sys.exit()
 
-THRESHOLD = int(sys.argv[2])
+THRESHOLD = int(sys.argv[1])
 
 def generate(num_servers_left, l):
     if num_servers_left == 1:
@@ -31,19 +32,20 @@ def generate_commands(topo_stats):
     keylist = topo_stats.keys()
 
     for key in keylist:
-        template = open("commands_template_%s_%s.txt" % (sys.argv[1], key), 'r')
+        template = open('src/commands/commands_template_%s.txt' % key, 'r')
         s = template.read()
         stat = topo_stats[key]
         # Assuming only 1 host
         num_servers = stat['SERVERS'] - 1
         s += generate(num_servers, [])
 
-        commands = open('commands_%s.txt' % key, 'w')
+        commands = open('src/commands/commands_%s.txt' % key, 'w')
         commands.write(s)
         commands.close()
         template.close()
 
 if __name__ == '__main__':
-    topo_stats = get_topo_data()["topo_stats"]
-    # print(topo_stats)
-    generate_commands(topo_stats)
+    
+    with open(sys.argv[2],'r') as f:
+        data = json.load(f, object_pairs_hook=OrderedDict)        
+        generate_commands(data["topo_stats"])

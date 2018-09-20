@@ -1,13 +1,14 @@
-from topo_to_json import get_topo_data
+import sys
+import json
+from collections import OrderedDict
 
 CREATE_GROUP = "mc_mgrp_create %d\n"
 CREATE_NODE = "mc_node_create %d %d\n"
 ASSOCIATE_NODE = "mc_node_associate %d %d\n"
 MIRRORING_ADD = "mirroring_add %d %d\n"
 
-def generate_sync_commands(topo_stats):
+def generate_sync_commands(topo_stats,commands_path):
 	mgrp_no = 1
-	
 
 	#Need to sort keys to keep a one to one mapping for switch number to mcast group
 	keylist = topo_stats.keys()
@@ -15,7 +16,7 @@ def generate_sync_commands(topo_stats):
 
 	for key in keylist:
 		node_no = 0
-		f = open("sync_commands_%s.txt"%key, 'a')
+		f = open("%s/sync_commands_%s.txt"%(commands_path,key), 'a')
 		stat = topo_stats[key]
 		num_hosts = stat["SERVERS"]
 		num_switches = stat["SWITCHES"]
@@ -33,5 +34,13 @@ def generate_sync_commands(topo_stats):
 
 
 if __name__ == '__main__':
-	topo_stats = get_topo_data()["topo_stats"]
-	generate_sync_commands(topo_stats)
+	if sys.argv < 3:
+		print("Usage: python3 generate_sync_commands.py <topology in json> <commands_path>")
+		sys.exit()
+
+	topo_file = sys.argv[1]
+	commands_path = sys.argv[2]
+
+	with open(topo_file,'r') as f:
+		data = json.load(f, object_pairs_hook=OrderedDict)
+		generate_sync_commands(data["topo_stats"],commands_path)
