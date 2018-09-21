@@ -3,6 +3,7 @@
 
 // TODO: Define the threshold value
 #define HEAVY_HITTER_THRESHOLD 100
+#define BUCKETS 50
 
 field_list ipv4_checksum_list {
         ipv4.version;
@@ -39,10 +40,10 @@ header_type custom_metadata_t {@data ca be forwarded
     fields {
         nhop_ipv4: 32;
         // TODO: Add the metadata for hash indices and count values
-	@pcube_for (i) (1,5,1)	
+	@pcube_for (i) (1,BUCKETS,1)	
         hash_val$i: 16;
         count_val$i: 16;
-        @pcube_endfor
+    @pcube_endfor
     }
 }
 
@@ -72,6 +73,9 @@ field_list hash_fields {
 
 // TODO: Define two different hash functions to store the counts
 // Please use csum16 and crc16 for the hash functions
+
+// Need indexed algorithm names hash computations
+
 field_list_calculation heavy_hitter_hash1 {
     input { 
         hash_fields;
@@ -90,7 +94,7 @@ field_list_calculation heavy_hitter_hash2 {
 
 // TODO: Define the registers to store the counts @for
 
-@pcube_for (i) (1,5,1)
+@pcube_for (i) (1,BUCKETS,1)
 register heavy_hitter_counter$i{
     width : 16;
     instance_count : 16;
@@ -99,14 +103,13 @@ register heavy_hitter_counter$i{
 
 // TODO: Actions to set heavy hitter filter: @for
 action set_heavy_hitter_count() {
-@pcube_for (i) (1,5,1)
-    modify_field_with_hash_based_offset(custom_metadata.hash_val1, 0,
-                                        heavy_hitter_hash1, 16); //dest, base, field_list_calc for hash calc, size of hash
-    register_read(custom_metadata.count_val1, heavy_hitter_counter1, custom_metadata.hash_val1); //dest, reg-ref name of reg array, offset of array to get reg 
-    add_to_field(custom_metadata.count_val1, 1);
-    register_write(heavy_hitter_counter1, custom_metadata.hash_val1, custom_metadata.count_val1);
+@pcube_for (i) (1,BUCKETS,1)
+    modify_field_with_hash_based_offset(custom_metadata.hash_val$i, 0, heavy_hitter_hash$i, 16); //dest, base, field_list_calc for hash calc, size of hash
+    register_read(custom_metadata.count_val$i, heavy_hitter_counter$i, custom_metadata.hash_val$i); //dest, reg-ref name of reg array, offset of array to get reg 
+    add_to_field(custom_metadata.count_val$i, 1);
+    register_write(heavy_hitter_counter$i, custom_metadata.hash_val$i, custom_metadata.count_val$i);
 //reg-ref name of reg array, offset of array to get reg 
-pcube_endfor
+@pcube_endfor
 }
 
 // TODO: Define the tables to run actions
@@ -163,7 +166,7 @@ table send_frame {
 control ingress {
     // TODO: Add table control here: @bool/@cmp
     apply(set_heavy_hitter_count_table);
-@pcube_cmp (1,5,1)(>=)(and)(custom_metadata.count_val$i, HEAVY_HITTER_THRESHOLD)){
+    if ( @pcube_cmp (1,BUCKETS,1)(>)(and)(custom_metadata.count_val$i, HEAVY_HITTER_THRESHOLD)){
     apply(drop_heavy_hitter_table);
     } else {
         apply(ipv4_lpm);
